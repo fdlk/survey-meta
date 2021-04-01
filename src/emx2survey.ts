@@ -1,6 +1,7 @@
 // Import here Polyfills if needed. Recommended core-js (npm i -D core-js)
 // import "core-js/fn/array.find"
 
+import "core-js/proposals/string-replace-all"
 import type { Attribute, EntityType } from "./EMX";
 import { AnyElement, PageElement, Validator } from "./survey";
 
@@ -34,15 +35,46 @@ export default function emx2survey(emx: EntityType): any {
     pages,
     "showProgressBar": "top",
     "checkErrorsMode": "onValueChanged"
- }
+  }
+}
+
+export function convertOp(op: string, not: boolean): string {
+  switch (op) {
+    case 'eq': return not ? "!=" : "="
+    case 'ge': return not ? "<" : ">="
+    default: throw new Error("Unknown operator: " + op)
+  }
+}
+
+export function convertDollar(attr: string, age:string | undefined): string {
+  if (age) {
+    return `age(${convertDollar(attr, undefined)})`
+  } else {
+    return `{${attr}}`
+  }
+}
+
+export function convertExpression(expression: string): string {
+  const regexOp = /\$\('(\w+)'\)(\.age\(\))?\.(eq|ge)\(('?\w+'?)\)(\.not\(\))?\.value\(\)/gm
+  let result = expression.replace(regexOp, (_, attr, age, op, value, not) =>
+    `${convertDollar(attr, age)}${convertOp(op, !!not)}${value}`)
+
+  const regexisisis = /\$\('(\w+)'\)(\.age\(\))?\.value\(\)\s*===\s*('?\w+'?)/gm
+  result = result.replace(regexisisis, (_, attr, age, value) =>
+    `${convertDollar(attr, age)}=${value}`)
+
+  const regexindexof = /\$\('(\w+)'\)\.value\(\)\.indexOf\(('?\w+'?)\)\s*>\s*-1/gm
+    result = result.replace(regexindexof, (_, attr, value) =>
+      `{${attr}} contains ${value}`)
+
+  return result.replaceAll('===', '=').replaceAll('==', '=')
 }
 
 export function attribute2element(attribute: Attribute): AnyElement {
   const result: any = {
     name: attribute.name,
     title: attribute.label,
-    isRequired: !attribute.nillable,
-    visible: attribute.visible
+    isRequired: !attribute.nillable
   }
   if (attribute.description) {
     result.description = attribute.description.replace(/(\r\n|\n|\r)/gm, "")
@@ -67,6 +99,11 @@ export function attribute2element(attribute: Attribute): AnyElement {
     }
     result.validators = [...result.validators, maxLengthValidator]
   }
+  if (attribute.visibleExpression) {
+    result.visibleIf = convertExpression(attribute.visibleExpression)
+  } else {
+    result.visible = attribute.visible
+  }
   switch (attribute.fieldType) {
     case "BOOL":
       return {
@@ -87,13 +124,13 @@ export function attribute2element(attribute: Attribute): AnyElement {
       return {
         ...result,
         type: "text",
-        inputType:'email'
+        inputType: 'email'
       }
     case "HYPERLINK":
       return {
         ...result,
         type: "text",
-        inputType:'url'
+        inputType: 'url'
       }
     case "DECIMAL":
     case "INT":
