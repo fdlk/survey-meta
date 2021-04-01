@@ -6,7 +6,7 @@ export interface Validator {
 }
 
 export interface Element {
-  type: string
+  type?: string
   name: string
   title: string
   description?: string
@@ -51,5 +51,9 @@ export interface PanelElement extends Element {
   elements: AnyElement[]
 }
 
+export interface PageElement extends Element {
+  elements: AnyElement[]
+}
+
 export type AnyElement = BooleanElement | CommentElement | TextElement |
-  RadioElement | CheckboxElement | PanelElement
+  RadioElement | CheckboxElement | PanelElement | PageElement

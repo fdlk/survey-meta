@@ -2,10 +2,39 @@
 // import "core-js/fn/array.find"
 
 import type { Attribute, EntityType } from "./EMX";
-import { AnyElement, Validator } from "./survey";
+import { AnyElement, PageElement, Validator } from "./survey";
 
 export default function emx2survey(emx: EntityType): any {
-  return emx.meta.attributes.map(attribute2element).filter(it => it != null)
+  const pages: PageElement[] = []
+  const elements: AnyElement[] = emx.meta.attributes.map(attribute2element)
+  let page: PageElement | null = null
+  for (const element of elements) {
+    if (element.type === 'panel') {
+      page = {
+        name: element.name,
+        title: element.title,
+        elements: element.elements
+      }
+      if (element.description) {
+        page.description = element.description
+      }
+      pages.push(page)
+    } else {
+      if (page === null) {
+        page = {
+          name: "page-" + pages.length + 1,
+          title: "Page " + pages.length + 1,
+          elements: []
+        }
+      }
+      page.elements.push(element)
+    }
+  }
+  return {
+    pages,
+    "showProgressBar": "top",
+    "checkErrorsMode": "onValueChanged"
+ }
 }
 
 export function attribute2element(attribute: Attribute): AnyElement {
